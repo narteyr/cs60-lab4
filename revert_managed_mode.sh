@@ -10,12 +10,10 @@ channel=$2
 
 sudo systemctl stop NetworkManager
 sudo systemctl stop wpa_supplicant
-sudo killall -9 wpa_supplicant NetworkManager dhclient 2>/dev/null
-sudo rfkill unblock all
 
 sudo ip link set $interface down
 sudo iwconfig $interface channel $channel
-sudo iwconfig $interface mode monitor
+sudo iwconfig $interface mode managed
 sudo ip link set $interface up
 
 echo "Monitor mode enabled for interface $interface on channel $channel"

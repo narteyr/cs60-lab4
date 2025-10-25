@@ -31,4 +31,4 @@ try:
         send_beacon()
         time.sleep(2)
 except KeyboardInterrupt:
-    print("Stopped survivor beacon transmission.")   
+    print("Stopped survivor beacon transmission.") 

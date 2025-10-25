@@ -10,6 +10,7 @@ survivors_lock = threading.Lock()
 APP_RUNNING = True
 
 def packet_handler(pkt):
+    """ Handler for incoming beacon frames"""
     if not pkt.haslayer(Dot11):
         return
     if not pkt.haslayer(Raw):
@@ -105,6 +106,7 @@ def ncurses_main(stdscr):
 
 
 def sniffer_thread(interface):
+    """ Sniff for beacon packets """
     print(f"Sniffer started on {interface}")
     sniff(iface=interface, prn=packet_handler, store=0, stop_filter=lambda x: not APP_RUNNING)
 
@@ -113,9 +115,17 @@ def main():
     sniffer = threading.Thread(target=sniffer_thread, args=(interface,), daemon=True)
     sniffer.start()
 
+
     try:
         curses.wrapper(ncurses_main)
+        curses.wrapper(ncurses_main)
     except KeyboardInterrupt:
+        print("[-] Stopped by Ctrl+C")
+    finally:
+        APP_RUNNING = False
+
+    sniffer.join()
+    print("Sniffer threaded exited.")
         print("[-] Stopped by Ctrl+C")
     finally:
         APP_RUNNING = False

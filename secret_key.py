@@ -92,7 +92,9 @@ def send_response_frame(index, interface="wlan0"):
     send_frame(payload, interface)
 
 def listen_for_replies(interface, rssi_data):
+    num_received = 0
     def handle_reply(pkt):
+        nonlocal numreceived
         packet_bytes = bytes(pkt)
 
         if REPLY_FRAME in packet_bytes:
@@ -108,6 +110,9 @@ def listen_for_replies(interface, rssi_data):
 
                 if rssi is not None:
                     rssi_data[index] = rssi
+                    num_received += 1
+                    if num_received % 50 == 0:
+                        print(f"Initiator has received {num_received}/{NUM_FRAMES} frames")
     
     sniff(iface=interface, prn=handle_reply, timeout=40, store=0)
 
@@ -125,6 +130,10 @@ def start_initiator(interface="wlan0"):
     for i in range(NUM_FRAMES):
         send_data_frame(i, interface)
         time.sleep(0.02)
+        if (i+1 % 50 == 0):
+            print(f"Sent {i+1}/{NUM_FRAMES}")
+    
+    print("Initiator has finished sending all frames")
     
     # make sure we wait for replies to finish
     time.sleep(2)
@@ -158,6 +167,8 @@ def start_responder(interface="wlan0"):
 
                     # reply with response frame
                     send_response_frame(index, interface)
+                    if num_received % 50 == 0:
+                        print(f"Received {num_received}/{NUM_FRAMES} frames")
 
     sniff(iface=interface, prn=handle_data_frame, timeout=40, store=0)
     return rssi_data

@@ -168,7 +168,7 @@ def start_responder(interface="wlan0"):
                     # reply with response frame
                     send_response_frame(index, interface)
                     if num_received % 50 == 0:
-                        print(f"Received {num_received}/{NUM_FRAMES} frames")
+                        print(f"Responder has received {num_received}/{NUM_FRAMES} frames")
 
     sniff(iface=interface, prn=handle_data_frame, timeout=40, store=0)
     return rssi_data

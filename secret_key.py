@@ -66,7 +66,7 @@ def wait_for_responder(interface="wlan0", timeout=5):
     # send ready frames until timeout or we have a responder 
     while time.time() - start_time < timeout and not heard_responder:
         send_frame(READY_FRAME, interface)
-        sniff(iface=iface, prn=check_ack, timeout=0.5, store=0)
+        sniff(iface=interface, prn=check_ack, timeout=0.5, store=0)
 
     if heard_responder:
         print("Responder found")
@@ -83,15 +83,15 @@ def main():
 
     if role == "initiator":
         print("ROLE: Initiator")
-        if wait_for_responder(initiator):
+        if wait_for_responder():
             print("Responder has connected")
         else:
             print("No responder found")
     elif role == "responder":
         print("ROLE: Responder")
 
-if __name__ = "__main__":
-    main():
+if __name__ == "__main__":
+    main()
         
 
     

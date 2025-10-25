@@ -4,13 +4,7 @@ import threading
 import time
 import curses
 
-survivors = {
-    "bc:07:1d:74:51:6a" : {
-        "id": "4",
-        "last_seen":time.time(),
-        "rssi": "-45",
-    }
-}
+survivors = {}
 survivors_lock = threading.Lock()
 
 APP_RUNNING = True
@@ -31,13 +25,12 @@ def packet_handler(pkt):
     # figure out how this works 
     if pos + 12 <= len(packet_bytes):
         survivor_id = struct.unpack("!I", packet_bytes[pos+8:pos+12])[0]
-        print(f"  Survivor ID: {survivor_id}")
+
         
         # Get RSSI
         rssi = None
         if pkt.haslayer(RadioTap) and hasattr(pkt[RadioTap], 'dBm_AntSignal'):
             rssi = pkt[RadioTap].dBm_AntSignal
-        print(f"  RSSI: {rssi} dBm")
 
 
         mac = None
@@ -52,7 +45,6 @@ def packet_handler(pkt):
                     "rssi": rssi,
                     "last_seen": last_seen
                 }
-                print(survivors)
     else:
         print("broken")
     '''
@@ -106,7 +98,7 @@ def ncurses_main(stdscr):
 
         #sort survivors by RSSI (strongest first)
         sorted_survivors = sorted(survivor_copy.items(),
-                                key=lambda item: item[1]['rssi'] if item[1]['rssi'] is not None else -999,
+                                key=lambda item: int(item[1]['rssi']) if item[1]['rssi'] is not None else -999,
                                 reverse=True
         )
 

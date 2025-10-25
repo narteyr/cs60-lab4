@@ -94,7 +94,7 @@ def send_response_frame(index, interface="wlan0"):
 def listen_for_replies(interface, rssi_data):
     num_received = 0
     def handle_reply(pkt):
-        nonlocal numreceived
+        nonlocal num_received
         packet_bytes = bytes(pkt)
 
         if REPLY_FRAME in packet_bytes:

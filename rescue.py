@@ -21,17 +21,15 @@ def packet_handler(pkt):
     
     pos = packet_bytes.find(b"RESCUEME")
         
-    # Extract survivor ID (4 bytes after RESCUEME)
-    # figure out how this works 
+    # Used Claude to figure out how to extract RSSI
     if pos + 12 <= len(packet_bytes):
+        # First 8 bytes should be "RESCUEME", next 4 should be id
         survivor_id = struct.unpack("!I", packet_bytes[pos+8:pos+12])[0]
 
-        
         # Get RSSI
         rssi = None
         if pkt.haslayer(RadioTap) and hasattr(pkt[RadioTap], 'dBm_AntSignal'):
             rssi = pkt[RadioTap].dBm_AntSignal
-
 
         mac = None
         if hasattr(pkt[Dot11], "addr2"):
@@ -45,19 +43,6 @@ def packet_handler(pkt):
                     "rssi": rssi,
                     "last_seen": last_seen
                 }
-    else:
-        print("broken")
-    '''
-    print("got valid packet")
-    survivor_id = struct.unpack("!I", payload[8:12])[0]
-    
-    rssi = None
-    if pkt.haslayer(RadioTap):
-        if hasattr(packet[RadioTap], 'dBm_AntSignal'):
-            rssi = packet[RadioTap].dBm_AntSignal
-            print(rssi)
-    
-    '''
 
 def ncurses_main(stdscr):
     """

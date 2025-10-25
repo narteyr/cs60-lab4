@@ -92,7 +92,6 @@ def send_response_frame(index, interface="wlan0"):
     send_frame(payload, interface)
 
 def listen_for_replies(interface, rssi_data):
-    
     def handle_reply(pkt):
         packet_bytes = bytes(pkt)
 
@@ -125,7 +124,7 @@ def start_initiator(interface="wlan0"):
 
     for i in range(NUM_FRAMES):
         send_data_frame(i, interface)
-        time.sleep(0.25)
+        time.sleep(0.02)
     
     # make sure we wait for replies to finish
     time.sleep(2)
@@ -134,7 +133,7 @@ def start_initiator(interface="wlan0"):
 def start_responder(interface="wlan0"):
     """ Responder listens for data frames, measures the RSSI, and responds """
     print("Responder starting in 3 seconds, start waving hand now...")
-    sleep(3)
+    time.sleep(3)
 
     rssi_data = {}
     num_received = 0
@@ -172,9 +171,9 @@ def main():
     if role == "initiator":
         print("ROLE: Initiator")
         print("\nWaiting for Responder...")
-        if wait_for_responder():
+        if wait_for_responder(interface):
             print("Responder has connected")
-            rssi_data = start_initator(interface)
+            rssi_data = start_initiator(interface)
         else:
             print("No responder found")
     elif role == "responder":

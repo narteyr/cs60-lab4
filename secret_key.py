@@ -1,9 +1,16 @@
 from scapy.all import *
 import time 
 import uuid 
+import threading
+import struct
 
 READY_FRAME = b"READY"
 ACK_FRAME = b"ACK"
+
+# data is sent by initiator, reply sent by respondent
+DATA_FRAME = b"DATA"
+REPLY_FRAME = b"REPLY"
+NUM_FRAMES = 300
 
 def send_frame(payload, interface="wlan0"):
     """ Helper function to send frames """
@@ -34,7 +41,6 @@ def determine_role(interface="wlan0"):
             print("Detected Ready Frame from another device")
             found_initiator = True
 
-    print("Listening for Ready Frames...")
     sniff(iface=interface, prn=check_ready, timeout=3, store=0) # Wait 3 seconds
     if found_initiator:
         print("This device is the responder")
@@ -66,7 +72,7 @@ def wait_for_responder(interface="wlan0", timeout=5):
     # send ready frames until timeout or we have a responder 
     while time.time() - start_time < timeout and not heard_responder:
         send_frame(READY_FRAME, interface)
-        sniff(iface=iface, prn=check_ack, timeout=0.5, store=0)
+        sniff(iface=interface, prn=check_ack, timeout=0.5, store=0)
 
     if heard_responder:
         print("Responder found")
@@ -75,23 +81,119 @@ def wait_for_responder(interface="wlan0", timeout=5):
         print("Could not find a responder")
         return False
 
+def send_data_frame(index, interface="wlan0"):
+    """ Called by initiator to send frames """
+    payload = DATA_FRAME + struct.pack("!I", index)
+    send_frame(payload, interface)
+
+def send_response_frame(index, interface="wlan0"):
+    """ Called by responder to send frames back """
+    payload = REPLY_FRAME + struct.pack("!I", index)
+    send_frame(payload, interface)
+
+def listen_for_replies(interface, rssi_data):
+    
+    def handle_reply(pkt):
+        packet_bytes = bytes(pkt)
+
+        if REPLY_FRAME in packet_bytes:
+            pos = packet_bytes.find(REPLY_FRAME)
+
+            if pos + len(REPLY_FRAME) + 4 <= len(packet_bytes):
+                index_bytes = packet_bytes[pos+len(REPLY_FRAME):pos+len(REPLY_FRAME)+4]
+                index = struct.unpack("!I", index_bytes)[0]
+
+                rssi = None
+                if pkt.haslayer(RadioTap) and hasattr(pkt[RadioTap], 'dBm_AntSignal'):
+                    rssi = pkt[RadioTap].dBm_AntSignal
+
+                if rssi is not None:
+                    rssi_data[index] = rssi
+    
+    sniff(iface=interface, prn=handle_reply, timeout=40, store=0)
+
+def start_initiator(interface="wlan0"):
+    """ Starts initiator exchange """
+    print("Initiator starting in 3 seconds, start waving hand now...")
+    time.sleep(3)
+
+    rssi_data = {}
+
+    # Listen to replies while sending in the background
+    listener_thread = threading.Thread(target=listen_for_replies, args=(interface, rssi_data), daemon=True)
+    listener_thread.start()
+
+    for i in range(NUM_FRAMES):
+        send_data_frame(i, interface)
+        time.sleep(0.25)
+    
+    # make sure we wait for replies to finish
+    time.sleep(2)
+    return rssi_data
+
+def start_responder(interface="wlan0"):
+    """ Responder listens for data frames, measures the RSSI, and responds """
+    print("Responder starting in 3 seconds, start waving hand now...")
+    sleep(3)
+
+    rssi_data = {}
+    num_received = 0
+
+    def handle_data_frame(pkt):
+        nonlocal num_received
+        packet_bytes = bytes(pkt)
+
+        if DATA_FRAME in packet_bytes:
+            pos = packet_bytes.find(DATA_FRAME)
+            if pos + len(DATA_FRAME) + 4 <= len(packet_bytes):
+                index_bytes = packet_bytes[pos+len(DATA_FRAME):pos+len(DATA_FRAME)+4]
+                index = struct.unpack("!I", index_bytes)[0]
+
+                rssi = None
+                if pkt.haslayer(RadioTap) and hasattr(pkt[RadioTap], 'dBm_AntSignal'):
+                    rssi = pkt[RadioTap].dBm_AntSignal
+
+                if rssi is not None and index < NUM_FRAMES:
+                    rssi_data[index] = rssi
+                    num_received += 1
+
+                    # reply with response frame
+                    send_response_frame(index, interface)
+
+    sniff(iface=interface, prn=handle_data_frame, timeout=40, store=0)
+    return rssi_data
+
 def main():
     interface = "wlan0"
 
     print("Determining role...")
     role = determine_role(interface)
-
+    rssi_data = {}
     if role == "initiator":
         print("ROLE: Initiator")
-        if wait_for_responder(initiator):
+        print("\nWaiting for Responder...")
+        if wait_for_responder():
             print("Responder has connected")
+            rssi_data = start_initator(interface)
         else:
             print("No responder found")
     elif role == "responder":
         print("ROLE: Responder")
+        print("Connected to Initaitor")
+        rssi_data = start_responder(interface)
 
-if __name__ = "__main__":
-    main():
+    print("RESULTS:")
+    print('-'*50)
+    print(f"Total number of RSSI Measurements: {len(rssi_data)}")
+
+    # print stats
+    if len(rssi_data) > 0:
+        rssi_values = list(rssi_data.values())
+        print(f"Range | Min: {min(rssi_values)} dbm | Max: {max(rssi_values)} dbm")
+        print(f"Average: {sum(rssi_values)/len(rssi_values):.2f} dbm")
+
+if __name__ == "__main__":
+    main()
         
 
     

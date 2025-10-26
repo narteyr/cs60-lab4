@@ -247,7 +247,7 @@ def exchange_indices(key_bits, interface="wlan0", role="initiator"):
         other_indices = receive_indices(interface, timeout=10)
         print("Initiator: sending indices")
         send_indices_frames(key_bits, interface)
-        time.sleep(1)
+        time.sleep(5)
 
     if not other_indices:
         print("Failed to receive indices from other device.")
@@ -361,18 +361,15 @@ def verify_key(key_string, interface="wlan0", timeout=20):
 
     def listen_for_hash(pkt):
         nonlocal initiator_key_hash
-
-        if not pkt.haslayer(Raw):
-            return
         
-        payload = bytes(pkt[Raw].load)
+        packet_bytes = bytes(pkt)
         
-        if not KEY_HASH_FRAME in payload:
+        if not KEY_HASH_FRAME in packet_byts:
             return
 
         pos = payload.find(KEY_HASH_FRAME)
         # initiator key hash data
-        data = payload[pos+len(KEY_HASH_FRAME):]
+        data = packet_bytes[pos+len(KEY_HASH_FRAME):]
 
         # SHA 256 is 64 characters
         if len(data) >= 64:

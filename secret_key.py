@@ -182,7 +182,9 @@ def send_indices_frames(key_bits, interface="wlan0"):
         return
 
     print(f"Sending {len(indices)} indices...")
-    payload = INDICES_FRAME + struct.pack(f"!{len(indices)}I", *indices)
+    payload = INDICES_FRAME
+    payload += struct.pack("!I", len(indices)) 
+    payload += struct.pack(f"!{len(indices)}I", *indices) 
 
     # send multiple times just in case
     for i in range(5):
@@ -195,32 +197,43 @@ def receive_indices(interface="wlan0", timeout=10):
     """ Receive indices from other device """
 
     print("Listening for indices...")
-    received_indices = set()
+    received_indices = None
     def listen_for_indices(pkt):
         nonlocal received_indices
 
-        payload = bytes(pkt)
+        packet_bytes = bytes(pkt)
 
-        if INDICES_FRAME not in payload:
+        if INDICES_FRAME not in packet_bytes:
             return
 
-        pos = payload.find(INDICES_FRAME)
-        indices_data = payload[pos + len(INDICES_FRAME):]
+        pos = packet_bytes.find(INDICES_FRAME)
+        data = packet_bytes[pos + len(INDICES_FRAME):]
 
-        # check that this is valid length (each index should be 4 bytes)
-        if len(indices_data) % 4 != 0:
-            print(f"Invalid indices data length: {len(indices_data)}")
+        if len(data) < 4:
             return
-        num_indices = len(indices_data) // 4
-        if num_indices > 0:
-            try:
-                indices = struct.unpack(f"!{num_indices}I", indices_data)
-                received_indices.update(indices)
-                print(f"Received {len(indices)} indices")
-            except struct.error as e:
-                print(f"Error unpacking indices: {e}")
         
-    sniff(iface=interface, prn=listen_for_indices, timeout=timeout, store=0)
+        # get count
+        count = struct.unpack("!I", data[:4])[0]  
+        indices_data = data[4:]
+        
+        if len(indices_data) < count * 4:
+            print(f"Not enough data for {count} indices")
+            return
+        try:
+            indices_bytes = indices_data[:count * 4]
+            indices = struct.unpack(f"!{count}I", indices_bytes)
+            
+            if received_indices is None:
+                received_indices = set(indices)
+                print(f"[+] Received {len(indices)} indices!")
+                
+        except struct.error as e:
+            print(f"[-] Error unpacking: {e}")
+    
+    def should_stop(pkt):
+        return received_indices[0] is not None
+        
+    sniff(iface=interface, prn=listen_for_indices, stop_filter=should_stop, timeout=timeout, store=0)
 
     if received_indices:
         print(f"Successfully received {len(received_indices)} indices.")
@@ -267,6 +280,8 @@ def build_key(key_bits, common_indices):
     # sort for consistency
     sorted_indices = sorted(common_indices)
     key = ''.join(str(key_bits[idx]) for idx in sorted_indices)
+
+    print(f"Generated key: {key}")
 
     return key
 
@@ -364,10 +379,10 @@ def verify_key(key_string, interface="wlan0", timeout=20):
         
         packet_bytes = bytes(pkt)
         
-        if not KEY_HASH_FRAME in packet_byts:
+        if not KEY_HASH_FRAME in packet_bytes:
             return
 
-        pos = payload.find(KEY_HASH_FRAME)
+        pos = packet_bytes.find(KEY_HASH_FRAME)
         # initiator key hash data
         data = packet_bytes[pos+len(KEY_HASH_FRAME):]
 
@@ -384,6 +399,8 @@ def verify_key(key_string, interface="wlan0", timeout=20):
         print("Failed to receive initiator's key.")
         return False
 
+    print(f"initiator: {initiator_key_hash}")
+    print(responder_key_hash)
     if initiator_key_hash == responder_key_hash:
         print("Success! Initiator and Responder keys match!")
         send_key_verification(True, interface)

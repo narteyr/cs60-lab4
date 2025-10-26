@@ -46,7 +46,7 @@ def determine_role(interface="wlan0"):
             print("Detected Ready Frame from another device")
             found_initiator = True
 
-    sniff(iface=interface, prn=check_ready, timeout=3, store=0) # Wait 5 seconds
+    sniff(iface=interface, prn=check_ready, timeout=3, store=0) # Wait 3 seconds
     if found_initiator:
         print("This device is the responder")
         send_ack(interface)
@@ -198,9 +198,8 @@ def receive_indices(interface="wlan0", timeout=10):
     received_indices = set()
     def listen_for_indices(pkt):
         nonlocal received_indices
-        if not pkt.haslayer(Raw):
-            return
-        payload = bytes(pkt[Raw].load)
+
+        payload = bytes(pkt)
 
         if INDICES_FRAME not in payload:
             return

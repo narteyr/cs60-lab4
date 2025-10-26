@@ -149,11 +149,10 @@ def filter_common_bits(indices, bits):
     purpose: to filter out bits with index similar to indices
     """
 
+"""
 def listen_for_indices(pkt):
-    """
     purpose: sniffs packets and extracts index arrays from Raw payload
     Expected payload encoding: 4-bytes unsigned integers (big-endian)
-    """
     if not pkt.haslayer(RadioTap) or not pkt.haslayer(Raw):
         return
 
@@ -168,10 +167,13 @@ def listen_for_indices(pkt):
     indices = list(struct.unpack(f"!{num_indices}I", payload))
     print(f"[+] Received indices: {indices}")
     
+"""
+
 def send_indices_frames(key_bits, interface="wlan0"):
     """
     Sends indices to other device
     """
+    print(list(key_bits.keys()))
     indices = sorted(key_bits.keys())
 
     if not indices:
@@ -197,12 +199,12 @@ def receive_indices(interface="wlan0", timeout=10):
         nonlocal received_indices
         if not pkt.haslayer(Raw):
             return
-
+        print("here 1")
         payload = bytes(pkt[Raw].load)
 
         if INDICES_FRAME not in payload:
             return
-        
+        print("here 2")
         pos = payload.find(INDICES_FRAME)
         indices_data = payload[pos + len(INDICES_FRAME):]
 
@@ -210,7 +212,7 @@ def receive_indices(interface="wlan0", timeout=10):
         if len(indices_data) % 4 != 0:
             print(f"Invalid indices data length: {len(indices_data)}")
             return
-
+        print("here 3")
         num_indices = len(indices_data) // 4
         if num_indices > 0:
             try:
@@ -229,13 +231,23 @@ def receive_indices(interface="wlan0", timeout=10):
         print("Failed to receive indices")
         return set()
 
-def exchange_indices(key_bits, interface="wlan0"):
+def exchange_indices(key_bits, interface="wlan0", role="initiator"):
     """ Sends indices to other device and determines indices in common """
     my_indices = set(key_bits.keys())
-    send_indices_frames(key_bits, interface)
-    time.sleep(0.5)
-    
-    other_indices = receive_indices(interface, 10)
+
+    if role == "initiator":
+        # initiator sends first, then receives
+        print("Initiator: sending indices")
+        send_indices_frames(key_bits, interface)
+        time.sleep(2)
+        print("Initiator: receiving indices")
+        other_indices = receive_indices(interface, timeout=10)  
+    else:
+        print("Responder: receiving indices")
+        other_indices = receive_indices(interface, timeout=10)
+        time.sleep(1)
+        print("Initiator: sending indices")
+        send_indices_frames(key_bits, interface)
 
     if not other_indices:
         print("Failed to receive indices from other device.")
@@ -443,8 +455,9 @@ def main():
         print("No key bits were generated")
         return
 
+    print("[+] Key bits were generated!")
     # determine set of common indices
-    common_indices = exchange_indices(key_bits, interface)
+    common_indices = exchange_indices(key_bits, interface, role)
     
     if len(common_indices) == 0:
         print("Not able to generate a key because there were no indices in common...")

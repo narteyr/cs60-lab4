@@ -140,6 +140,49 @@ def start_initiator(interface="wlan0"):
     time.sleep(2)
     return rssi_data
 
+
+def filter_common_bits(indices, bits):
+    """
+    purpose: to filter out bits with index similar to indices
+    """
+
+
+
+def listen_for_indices(pkt):
+    """
+    purpose: sniffs packets and extracts index arrays from Raw payload
+    Expected payload encoding: 4-bytes unsigned integers (big-endian)
+    """
+    if not pkt.hasLayer(RadioTap) or pkt.hasLayer(Raw):
+        return
+
+    payload = bytes(pkt[Raw])
+    payload_len = len(payload)
+
+    if payload_len % 4 != 0:
+        print(f"[-] invalid payload length ({payload_len})")
+        return
+
+    num_indices = payload_len // 4
+    indices = list(struct.unpack(f"!{num_indices}I", payload))
+    print(f"[+] Received indices: {indices}")
+    
+def send_indices_frames(rssi_dict):
+    """
+    purpose: send an array of indices as Raw payload to a receiver.
+    """
+
+    indices = list(rssi_dict.keys())
+    print(indices_list)
+
+    if not indices:
+        print("[-] No indices to send")
+        return
+
+    payload = struct.pack(f"!{len(indices)}I", *indices)
+    send_frame(payload)
+
+
 def start_responder(interface="wlan0"):
     """ Responder listens for data frames, measures the RSSI, and responds """
     print("Responder starting in 3 seconds, start waving hand now...")
@@ -225,6 +268,13 @@ def main():
     # calcualte key bits
     if len(rssi_data) > 0:
         key_bits = calculate_bits(rssi_data, z=1.5)
+        send_indices_frames(key_bits)
+        sniff(
+            iface="wlan0",
+            prn=listen_for_indices,
+            timeout=2,
+            store=0
+        )
 
 if __name__ == "__main__":
     main()

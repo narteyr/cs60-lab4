@@ -197,8 +197,6 @@ def receive_indices(interface="wlan0", timeout=10):
     received_indices = set()
     def listen_for_indices(pkt):
         nonlocal received_indices
-        if not pkt.haslayer(Raw):
-            return
         print("here 1")
         packet_bytes = bytes(pkt)
 
@@ -237,17 +235,19 @@ def exchange_indices(key_bits, interface="wlan0", role="initiator"):
 
     if role == "initiator":
         # initiator sends first, then receives
+        print("Initiator: Waiting for responder to be ready to receive indices")
+        time.sleep(2)
         print("Initiator: sending indices")
         send_indices_frames(key_bits, interface)
-        time.sleep(3)
+        time.sleep(1)
         print("Initiator: receiving indices")
         other_indices = receive_indices(interface, timeout=10)  
     else:
         print("Responder: receiving indices")
-        other_indices = receive_indices(interface, timeout=10)
-        time.sleep(2)
+        other_indices = receive_indices(interface, timeout=15)
         print("Initiator: sending indices")
         send_indices_frames(key_bits, interface)
+        time.sleep(1)
 
     if not other_indices:
         print("Failed to receive indices from other device.")
@@ -266,7 +266,7 @@ def build_key(key_bits, common_indices):
 
     # sort for consistency
     sorted_indices = sorted(common_indices)
-    key = ''.join(str[key_bits[idx]] for idx in sorted_indices)
+    key = ''.join(str(key_bits[idx]) for idx in sorted_indices)
 
     return key
 
@@ -367,7 +367,7 @@ def verify_key(key_string, interface="wlan0", timeout=10):
         
         payload = bytes(pkt[Raw].load)
         
-        if not KEY_HASHFRAME in payload:
+        if not KEY_HASH_FRAME in payload:
             return
 
         pos = payload.find(KEY_HASH_FRAME)

@@ -200,13 +200,13 @@ def receive_indices(interface="wlan0", timeout=10):
         if not pkt.haslayer(Raw):
             return
         print("here 1")
-        payload = bytes(pkt[Raw].load)
+        packet_bytes = bytes(pkt)
 
-        if INDICES_FRAME not in payload:
+        if INDICES_FRAME not in packet_bytes:
             return
         print("here 2")
-        pos = payload.find(INDICES_FRAME)
-        indices_data = payload[pos + len(INDICES_FRAME):]
+        pos = packet_bytes.find(INDICES_FRAME)
+        indices_data = packet_bytes[pos + len(INDICES_FRAME):]
 
         # check that this is valid length (each index should be 4 bytes)
         if len(indices_data) % 4 != 0:

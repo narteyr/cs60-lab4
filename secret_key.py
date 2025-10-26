@@ -3,6 +3,7 @@ import time
 import uuid 
 import threading
 import struct
+import statistics
 
 READY_FRAME = b"READY"
 ACK_FRAME = b"ACK"
@@ -114,7 +115,7 @@ def listen_for_replies(interface, rssi_data):
                     if num_received % 50 == 0:
                         print(f"Initiator has received {num_received}/{NUM_FRAMES} frames")
     
-    sniff(iface=interface, prn=handle_reply, timeout=40, store=0)
+    sniff(iface=interface, prn=handle_reply, timeout=30, store=0)
 
 def start_initiator(interface="wlan0"):
     """ Starts initiator exchange """
@@ -170,8 +171,33 @@ def start_responder(interface="wlan0"):
                     if num_received % 50 == 0:
                         print(f"Responder has received {num_received}/{NUM_FRAMES} frames")
 
-    sniff(iface=interface, prn=handle_data_frame, timeout=40, store=0)
+    sniff(iface=interface, prn=handle_data_frame, timeout=30, store=0)
     return rssi_data
+
+def calculate_bits(rssi_data, z=1.5):  
+    """ Determines sequence of bits based on RSSI Data """
+    
+    if len(rssi_data) < 0:
+        print("Not enough bits to generate a key.")
+        return {}
+
+    rssi_values = list(rssi_data.values())
+
+    mean_rssi = statistics.mean(rssi_values)
+    std_rssi = statistics.stdev(rssi_values)
+
+    # calcualte bounds
+    high = mean_rssi + std_rssi * z
+    low = mean_rssi - std_rssi * z
+
+    key_bits = {}  
+    for index, rssi in rssi_data.items():
+        if rssi > high:
+            key_bits[index] = 1
+        elif rssi < low:
+            key_bits[index] = 0
+
+    return key_bits
 
 def main():
     interface = "wlan0"
@@ -196,11 +222,9 @@ def main():
     print('-'*50)
     print(f"Total number of RSSI Measurements: {len(rssi_data)}")
 
-    # print stats
+    # calcualte key bits
     if len(rssi_data) > 0:
-        rssi_values = list(rssi_data.values())
-        print(f"Range | Min: {min(rssi_values)} dbm | Max: {max(rssi_values)} dbm")
-        print(f"Average: {sum(rssi_values)/len(rssi_values):.2f} dbm")
+        key_bits = calculate_bits(rssi_data, z=1.5)
 
 if __name__ == "__main__":
     main()

@@ -4,6 +4,7 @@ import uuid
 import threading
 import struct
 import statistics
+import hashlib
 
 READY_FRAME = b"READY"
 ACK_FRAME = b"ACK"
@@ -199,11 +200,11 @@ def receive_indices(interface="wlan0", timeout=10):
         nonlocal received_indices
         if not pkt.haslayer(Raw):
             return
-        packet_bytes = bytes(pkt)
         payload = bytes(pkt[Raw].load)
 
-        if INDICES_FRAME not in packet_bytes:
+        if INDICES_FRAME not in payload:
             return
+
         pos = payload.find(INDICES_FRAME)
         indices_data = payload[pos + len(INDICES_FRAME):]
 

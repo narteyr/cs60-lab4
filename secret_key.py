@@ -197,25 +197,25 @@ def receive_indices(interface="wlan0", timeout=10):
     received_indices = set()
     def listen_for_indices(pkt):
         nonlocal received_indices
-        print("here 1")
+        if not pkt.haslayer(Raw):
+            return
         packet_bytes = bytes(pkt)
+        payload = bytes(pkt[Raw].load)
 
         if INDICES_FRAME not in packet_bytes:
             return
-        print("here 2")
-        pos = packet_bytes.find(INDICES_FRAME)
-        indices_data = packet_bytes[pos + len(INDICES_FRAME):]
+        pos = payload.find(INDICES_FRAME)
+        indices_data = payload[pos + len(INDICES_FRAME):]
 
         # check that this is valid length (each index should be 4 bytes)
         if len(indices_data) % 4 != 0:
             print(f"Invalid indices data length: {len(indices_data)}")
             return
-        print("here 3")
         num_indices = len(indices_data) // 4
         if num_indices > 0:
             try:
                 indices = struct.unpack(f"!{num_indices}I", indices_data)
-                received_indices = set(indices)
+                received_indices.update(indices)
                 print(f"Received {len(indices)} indices")
             except struct.error as e:
                 print(f"Error unpacking indices: {e}")
@@ -241,10 +241,10 @@ def exchange_indices(key_bits, interface="wlan0", role="initiator"):
         send_indices_frames(key_bits, interface)
         time.sleep(1)
         print("Initiator: receiving indices")
-        other_indices = receive_indices(interface, timeout=10)  
+        other_indices = receive_indices(interface, timeout=15)  
     else:
         print("Responder: receiving indices")
-        other_indices = receive_indices(interface, timeout=15)
+        other_indices = receive_indices(interface, timeout=10)
         print("Initiator: sending indices")
         send_indices_frames(key_bits, interface)
         time.sleep(1)
@@ -313,7 +313,7 @@ def start_responder(interface="wlan0"):
     sniff(iface=interface, prn=handle_data_frame, stop_filter=should_stop, timeout=30, store=0)
     return rssi_data
 
-def calculate_bits(rssi_data, z=1.5):  
+def calculate_bits(rssi_data, z=0.5):  
     """ Determines sequence of bits based on RSSI Data """
     
     if len(rssi_data) == 0:
@@ -353,7 +353,7 @@ def send_key_hash(key_string, interface="wlan0"):
 
     return key_hash
 
-def verify_key(key_string, interface="wlan0", timeout=10):
+def verify_key(key_string, interface="wlan0", timeout=20):
     """ Responder function to verify key matches """
     
     responder_key_hash = hashlib.sha256(key_string.encode()).hexdigest()
@@ -458,7 +458,7 @@ def main():
     print(f"Total number of RSSI Measurements: {len(rssi_data)}")
 
     # calculate key bits using mean + std
-    key_bits = calculate_bits(rssi_data, z=1.5)
+    key_bits = calculate_bits(rssi_data, z=0.5)
 
     if len(key_bits) == 0:
         print("No key bits were generated")

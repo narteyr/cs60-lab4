@@ -277,9 +277,11 @@ def start_responder(interface="wlan0"):
 
     rssi_data = {}
     num_received = 0
+    last_frame_time = time.time()
 
     def handle_data_frame(pkt):
         nonlocal num_received
+        nonlocal last_frame_time
         packet_bytes = bytes(pkt)
 
         if DATA_FRAME in packet_bytes:
@@ -295,13 +297,20 @@ def start_responder(interface="wlan0"):
                 if rssi is not None and index < NUM_FRAMES:
                     rssi_data[index] = rssi
                     num_received += 1
+                    last_frame_time = time.time()
 
                     # reply with response frame
                     send_response_frame(index, interface)
                     if num_received % 50 == 0:
                         print(f"Responder has received {num_received}/{NUM_FRAMES} frames")
 
-    sniff(iface=interface, prn=handle_data_frame, timeout=30, store=0)
+    def should_stop(pkt):
+        idle_time = time.time() - last_frame_time
+        if idle_time > 3:
+            return True
+        return False
+    
+    sniff(iface=interface, prn=handle_data_frame, stop_filter=should_stop, timeout=30, store=0)
     return rssi_data
 
 def calculate_bits(rssi_data, z=1.5):  

@@ -225,7 +225,7 @@ def receive_indices(interface="wlan0", timeout=10):
     sniff(iface=interface, prn=listen_for_indices, timeout=timeout, store=0)
 
     if received_indices:
-        print(f"Successfully received {len(receive_indices)} indices.")
+        print(f"Successfully received {len(received_indices)} indices.")
         return received_indices
     else:
         print("Failed to receive indices")
@@ -239,13 +239,13 @@ def exchange_indices(key_bits, interface="wlan0", role="initiator"):
         # initiator sends first, then receives
         print("Initiator: sending indices")
         send_indices_frames(key_bits, interface)
-        time.sleep(2)
+        time.sleep(3)
         print("Initiator: receiving indices")
         other_indices = receive_indices(interface, timeout=10)  
     else:
         print("Responder: receiving indices")
         other_indices = receive_indices(interface, timeout=10)
-        time.sleep(1)
+        time.sleep(2)
         print("Initiator: sending indices")
         send_indices_frames(key_bits, interface)
 
